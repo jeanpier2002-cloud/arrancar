@@ -85,6 +85,8 @@
 
   .install { color: var(--muted); font-size: 13px; text-align: center; margin-top: 4px; }
   .install button { background: none; border: 0; color: var(--muted); text-decoration: underline; padding: 8px; }
+  .meta { color: var(--muted); font-size: 13px; margin-bottom: 10px; }
+  .btnrow { display: flex; gap: 10px; flex-wrap: wrap; }
 
   /* Pantalla de sesión */
   .session { min-height: calc(100dvh - 48px); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 14px; }
@@ -131,7 +133,7 @@
       const s = JSON.parse(localStorage.getItem(KEY));
       if (s && s.v === 1) return s;
     } catch (e) { /* sin almacenamiento: funciona en memoria */ }
-    return { v: 1, sessions: [], habits: {}, recent: [], active: null, hideInstall: false };
+    return { v: 1, sessions: [], habits: {}, recent: [], active: null, hideInstall: false, lastBackup: null };
   }
   let state = load();
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
@@ -213,6 +215,44 @@
     save(); renderHome();
   }
 
+  /* ---------- Copia de seguridad ---------- */
+  function backupNote() {
+    if (!state.lastBackup) {
+      return state.sessions.length
+        ? 'Aún no hay copia. Descarga una para no perder tus datos.'
+        : 'Te protege si borras los datos del navegador o cambias de celular.';
+    }
+    const days = Math.floor((Date.now() - state.lastBackup) / 86400000);
+    const when = new Date(state.lastBackup).toLocaleDateString('es', { day: 'numeric', month: 'long' });
+    return 'Última copia: ' + when + (days >= 7 ? ' · ya pasó una semana, haz otra.' : '.');
+  }
+  function exportData() {
+    const payload = JSON.stringify(Object.assign({}, state, { active: null, exportedAt: Date.now() }), null, 2);
+    const url = URL.createObjectURL(new Blob([payload], { type: 'application/json' }));
+    const a = document.createElement('a');
+    a.href = url; a.download = 'arrancar-copia-' + dayKey(Date.now()) + '.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    state.lastBackup = Date.now(); save(); renderHome();
+    toast('Copia descargada. Guárdala en Drive o envíatela por correo.');
+  }
+  async function importData(file) {
+    try {
+      const obj = JSON.parse(await file.text());
+      if (!obj || obj.v !== 1 || !Array.isArray(obj.sessions) || !obj.habits || typeof obj.habits !== 'object') throw new Error('formato');
+      const sessions = obj.sessions.filter((s) => s && typeof s.startedAt === 'number' && typeof s.focusSec === 'number');
+      if (!confirm('Esto reemplaza tus datos actuales por la copia (' + sessions.length + ' sesiones). ¿Continuar?')) return;
+      state = {
+        v: 1, sessions, habits: obj.habits,
+        recent: Array.isArray(obj.recent) ? obj.recent.filter((t) => typeof t === 'string').slice(0, 4) : [],
+        active: null, hideInstall: !!obj.hideInstall, lastBackup: Date.now()
+      };
+      save(); renderHome(); toast('Copia restaurada: ' + sessions.length + ' sesiones.');
+    } catch (e) {
+      toast('Ese archivo no es una copia válida de Arrancar.');
+    }
+  }
+
   /* ---------- Vistas ---------- */
   function renderHome() {
     const today = dayKey(Date.now());
@@ -282,6 +322,16 @@
         </div>
       </section>
 
+      <section class="card">
+        <h2>Copia de seguridad</h2>
+        <p class="meta">${esc(backupNote())}</p>
+        <div class="btnrow">
+          <button class="ghost" id="exp">Descargar copia</button>
+          <button class="ghost" id="imp">Restaurar copia</button>
+          <input type="file" id="file" accept="application/json,.json" hidden>
+        </div>
+      </section>
+
       ${standalone || state.hideInstall ? '' : `<p class="install">Para usarla como app: menú del navegador → «Añadir a pantalla de inicio».<br><button id="hideInstall">Ocultar</button></p>`}
     `;
 
@@ -295,6 +345,9 @@
     $('#estirar').addEventListener('click', () => setHabit({ estirar: !h.estirar }));
     $('#entreno').addEventListener('click', () => setHabit({ entreno: !h.entreno }));
     const hi = $('#hideInstall'); if (hi) hi.addEventListener('click', () => { state.hideInstall = true; save(); renderHome(); });
+    $('#exp').addEventListener('click', exportData);
+    $('#imp').addEventListener('click', () => $('#file').click());
+    $('#file').addEventListener('change', (e) => { const f = e.target.files[0]; if (f) importData(f); });
   }
 
   function renderRun() {
@@ -373,6 +426,9 @@
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
+
+  // Pide al navegador que NO borre estos datos por falta de espacio o desuso.
+  try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
 
   render();
 })();
