@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Arrancar</title>
+<meta name="description" content="Vence la inercia: empieza solo 5 minutos.">
+<meta name="theme-color" content="#0f1115">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Arrancar">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<style>
+  :root {
+    --bg: #0f1115; --card: #171a21; --line: #262b36;
+    --text: #eef1f6; --muted: #9aa4b5;
+    --accent: #5eead4; --on-accent: #04201c;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f4f6f9; --card: #ffffff; --line: #e3e7ee;
+      --text: #0f172a; --muted: #566174;
+      --accent: #0b7a6b; --on-accent: #ffffff;
+    }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body {
+    font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    min-height: 100dvh;
+    padding: max(16px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
+  }
+  #app { max-width: 480px; margin: 0 auto; }
+  h1, h2, p { margin: 0; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+  header { display: flex; justify-content: space-between; align-items: center; margin: 4px 0 16px; gap: 12px; }
+  h1 { font-size: 28px; letter-spacing: -.02em; }
+  .sub { color: var(--muted); font-size: 14px; }
+  .sub::first-letter { text-transform: uppercase; }
+  .chip { border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: 6px 12px; font-size: 14px; white-space: nowrap; }
+
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 16px; margin-bottom: 14px; }
+  .card h2 { font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; font-weight: 600; }
+  label.q { display: block; font-size: 18px; font-weight: 600; margin-bottom: 10px; }
+  input[type=text] {
+    width: 100%; font: inherit; color: var(--text); background: var(--bg);
+    border: 1px solid var(--line); border-radius: 12px; padding: 14px;
+  }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 0; }
+  .chips button { background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; font-size: 14px; color: var(--muted); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .go {
+    display: block; width: 100%; margin-top: 16px; min-height: 72px;
+    background: var(--accent); color: var(--on-accent); border: 0; border-radius: 16px;
+    font-size: 22px; font-weight: 700;
+  }
+  .go:active { transform: scale(.985); }
+  .hint { color: var(--muted); font-size: 14px; margin-top: 10px; text-align: center; }
+
+  .stats { display: flex; gap: 10px; margin-bottom: 14px; }
+  .stat { flex: 1; background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+  .stat b { display: block; font-size: 22px; }
+  .stat span { color: var(--muted); font-size: 13px; }
+
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); }
+  .row:first-of-type { border-top: 0; }
+  .row .t { font-weight: 600; }
+  .row .s { color: var(--muted); font-size: 13px; }
+  .stepper { display: flex; align-items: center; gap: 10px; }
+  .stepper button, .toggle { min-width: 44px; min-height: 44px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg); font-size: 20px; }
+  .stepper output { min-width: 44px; text-align: center; font-weight: 700; }
+  .toggle { padding: 0 14px; font-size: 15px; font-weight: 600; }
+  .toggle[aria-pressed=true] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+
+  .week { display: flex; align-items: flex-end; gap: 8px; height: 110px; }
+  .col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 4px; font-size: 12px; color: var(--muted); }
+  .bar { width: 100%; border-radius: 6px 6px 3px 3px; background: var(--line); min-height: 3px; }
+  .bar.on { background: var(--accent); }
+  .col.today .d { color: var(--text); font-weight: 700; }
+
+  .install { color: var(--muted); font-size: 13px; text-align: center; margin-top: 4px; }
+  .install button { background: none; border: 0; color: var(--muted); text-decoration: underline; padding: 8px; }
+
+  /* Pantalla de sesión */
+  .session { min-height: calc(100dvh - 48px); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 14px; }
+  .session .label { color: var(--muted); font-size: 14px; letter-spacing: .06em; text-transform: uppercase; }
+  .session .task { font-size: 24px; line-height: 1.25; max-width: 18em; overflow-wrap: anywhere; }
+  .ring { position: relative; width: min(72vw, 280px); aspect-ratio: 1; margin: 8px 0; }
+  .ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .ring circle { fill: none; stroke-width: 10; }
+  .ring .bg { stroke: var(--line); }
+  .ring .fg { stroke: var(--accent); stroke-linecap: round; transition: stroke-dashoffset .25s linear; }
+  .ring .time { position: absolute; inset: 0; display: grid; place-items: center; font-size: 52px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .session .note { color: var(--muted); max-width: 20em; }
+  .ghost { background: none; border: 1px solid var(--line); border-radius: 12px; padding: 12px 18px; color: var(--muted); min-height: 44px; }
+  .secondary { width: 100%; min-height: 56px; border-radius: 14px; border: 1px solid var(--accent); background: transparent; color: var(--text); font-size: 18px; font-weight: 600; }
+  .stack { width: 100%; display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+  .stack .go { margin-top: 0; }
+  .big { font-size: 56px; line-height: 1; }
+
+  #toast { position: fixed; left: 50%; bottom: max(24px, env(safe-area-inset-bottom)); transform: translate(-50%, 20px); background: var(--text); color: var(--bg); padding: 12px 16px; border-radius: 12px; opacity: 0; pointer-events: none; transition: .25s; max-width: calc(100vw - 32px); text-align: center; }
+  #toast.show { opacity: 1; transform: translate(-50%, 0); }
+  @media (prefers-reduced-motion: reduce) { .ring .fg, #toast, .go:active { transition: none; transform: none; } }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+  'use strict';
+
+  const KEY = 'arrancar.v1';
+  const BASE_MIN = 5;          // el arranque: solo 5 minutos
+  const WATER_GOAL = 8;
+  const R = 88, C = 2 * Math.PI * R;
+
+  const $ = (s, r = document) => r.querySelector(s);
+  const pad = (n) => String(n).padStart(2, '0');
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  /* ---------- Estado (guardado en este dispositivo) ---------- */
+  function load() {
+    try {
+      const s = JSON.parse(localStorage.getItem(KEY));
+      if (s && s.v === 1) return s;
+    } catch (e) { /* sin almacenamiento: funciona en memoria */ }
+    return { v: 1, sessions: [], habits: {}, recent: [], active: null, hideInstall: false };
+  }
+  let state = load();
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
+  let draftTask = '';
+
+  /* ---------- Fechas y rachas ---------- */
+  const dayKey = (ts) => { const d = new Date(ts); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); };
+  // Un día "cuenta" si llegaste al minuto 5 al menos una vez.
+  const countedDays = () => new Set(state.sessions.filter((s) => s.reached5).map((s) => dayKey(s.startedAt)));
+  function streak() {
+    const set = countedDays();
+    const d = new Date(); d.setHours(12, 0, 0, 0);
+    if (!set.has(dayKey(d))) d.setDate(d.getDate() - 1); // hoy aún no rompe la racha
+    let n = 0;
+    while (set.has(dayKey(d))) { n++; d.setDate(d.getDate() - 1); }
+    return n;
+  }
+
+  /* ---------- Sonido, vibración, pantalla encendida ---------- */
+  let audioCtx = null;
+  function unlockAudio() {
+    try {
+      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+    } catch (e) {}
+  }
+  function beep() {
+    try {
+      if (audioCtx) {
+        const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+        o.connect(g); g.connect(audioCtx.destination);
+        o.frequency.value = 880;
+        g.gain.setValueAtTime(0.25, audioCtx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.9);
+        o.start(); o.stop(audioCtx.currentTime + 0.9);
+      }
+    } catch (e) {}
+    try { navigator.vibrate && navigator.vibrate([200, 100, 200]); } catch (e) {}
+  }
+  let wake = null;
+  async function lockScreen() { try { if ('wakeLock' in navigator && !wake) wake = await navigator.wakeLock.request('screen'); } catch (e) {} }
+  function unlockScreen() { try { wake && wake.release(); } catch (e) {} wake = null; }
+
+  function toast(msg) {
+    const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+    clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 3500);
+  }
+
+  /* ---------- Acciones ---------- */
+  function start() {
+    unlockAudio();
+    const now = Date.now();
+    const task = draftTask.trim() || 'Lo primero de mi lista';
+    state.active = { task, startedAt: now, blockStart: now, endAt: now + BASE_MIN * 60000, leaves: 0, stage: 'run', ext: 0, focusMs: 0 };
+    save(); lockScreen(); render();
+  }
+  function extend(min) {
+    const a = state.active, now = Date.now();
+    a.blockStart = now; a.endAt = now + min * 60000; a.ext += min; a.stage = 'run';
+    save(); lockScreen(); render();
+  }
+  function finish() {
+    const a = state.active; if (!a) return;
+    if (a.stage === 'run') a.focusMs += Math.max(0, Math.min(Date.now(), a.endAt) - a.blockStart);
+    const focusSec = Math.round(a.focusMs / 1000);
+    const reached5 = focusSec >= BASE_MIN * 60 - 2;
+    state.sessions.push({ id: a.startedAt, task: a.task, startedAt: a.startedAt, focusSec, reached5, extraMin: a.ext, leaves: a.leaves });
+    state.recent = [a.task, ...state.recent.filter((t) => t !== a.task)].slice(0, 4);
+    state.active = null; draftTask = '';
+    save(); unlockScreen(); render();
+    const m = Math.round(focusSec / 60);
+    toast(reached5
+      ? `Guardado: ${m} min de foco. Hoy cuenta para tu racha.`
+      : `Guardado: ${m} min. La meta es pasar el minuto ${BASE_MIN}: lo difícil es empezar.`);
+  }
+  function setHabit(patch) {
+    const k = dayKey(Date.now());
+    state.habits[k] = Object.assign({ agua: 0, estirar: false, entreno: false }, state.habits[k], patch);
+    save(); renderHome();
+  }
+
+  /* ---------- Vistas ---------- */
+  function renderHome() {
+    const today = dayKey(Date.now());
+    const h = Object.assign({ agua: 0, estirar: false, entreno: false }, state.habits[today]);
+    const todays = state.sessions.filter((s) => dayKey(s.startedAt) === today);
+    const mins = Math.round(todays.reduce((t, s) => t + s.focusSec, 0) / 60);
+    const st = streak();
+    const dow = new Date().getDay();
+    const trainHint = [1, 2, 4, 5].includes(dow) ? 'Hoy toca Muay Thai' : dow === 3 ? 'Miércoles: descanso o bici' : 'Opcional: bici o descanso';
+
+    // Gráfico de los últimos 7 días
+    const counted = countedDays();
+    const days = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - i);
+      const key = dayKey(d);
+      const m = Math.round(state.sessions.filter((s) => dayKey(s.startedAt) === key).reduce((t, s) => t + s.focusSec, 0) / 60);
+      days.push({ key, m, on: counted.has(key), l: 'DLMMJVS'[d.getDay()], today: i === 0 });
+    }
+    const max = Math.max(30, ...days.map((d) => d.m));
+    const weekDays = days.filter((d) => d.on).length;
+    const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+
+    $('#app').innerHTML = `
+      <header>
+        <div><h1>Arrancar</h1><p class="sub">${esc(new Date().toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long' }))}</p></div>
+        <div class="chip" aria-label="Racha de días">🔥 ${st} ${st === 1 ? 'día' : 'días'}</div>
+      </header>
+
+      <section class="card">
+        <label class="q" for="task">¿Cuál es el primer paso?</label>
+        <input id="task" type="text" maxlength="80" autocomplete="off" placeholder="Ej: abrir el PDF del curso" value="${esc(draftTask)}">
+        ${state.recent.length ? `<div class="chips">${state.recent.map((t, i) => `<button data-recent="${i}" title="${esc(t)}">${esc(t)}</button>`).join('')}</div>` : ''}
+        <button class="go" id="go">Empezar ${BASE_MIN} minutos</button>
+        <p class="hint">Solo ${BASE_MIN}. Al terminar decides si sigues. Parar ahí también cuenta.</p>
+      </section>
+
+      <section class="card">
+        <h2>Hoy</h2>
+        <div class="stats">
+          <div class="stat"><b>${todays.length}</b><span>arranques</span></div>
+          <div class="stat"><b>${mins}</b><span>min de foco</span></div>
+          <div class="stat"><b>${weekDays}/7</b><span>días esta semana</span></div>
+        </div>
+        <div class="row">
+          <div><div class="t">Agua</div><div class="s">Meta: ${WATER_GOAL} vasos</div></div>
+          <div class="stepper">
+            <button id="aguaMenos" aria-label="Quitar un vaso">−</button>
+            <output aria-live="polite">${h.agua}/${WATER_GOAL}</output>
+            <button id="aguaMas" aria-label="Agregar un vaso">+</button>
+          </div>
+        </div>
+        <div class="row">
+          <div><div class="t">Estiramiento</div><div class="s">Dinámico, por la mañana</div></div>
+          <button class="toggle" id="estirar" aria-pressed="${h.estirar}">${h.estirar ? 'Hecho ✓' : 'Marcar'}</button>
+        </div>
+        <div class="row">
+          <div><div class="t">Entrenamiento</div><div class="s">${trainHint}</div></div>
+          <button class="toggle" id="entreno" aria-pressed="${h.entreno}">${h.entreno ? 'Hecho ✓' : 'Marcar'}</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Últimos 7 días · minutos de foco</h2>
+        <div class="week">
+          ${days.map((d) => `<div class="col${d.today ? ' today' : ''}"><span>${d.m || ''}</span><div class="bar${d.on ? ' on' : ''}" style="height:${Math.max(3, Math.round(d.m / max * 72))}px"></div><span class="d">${d.l}</span></div>`).join('')}
+        </div>
+      </section>
+
+      ${standalone || state.hideInstall ? '' : `<p class="install">Para usarla como app: menú del navegador → «Añadir a pantalla de inicio».<br><button id="hideInstall">Ocultar</button></p>`}
+    `;
+
+    const input = $('#task');
+    input.addEventListener('input', () => { draftTask = input.value; });
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') start(); });
+    $('#go').addEventListener('click', start);
+    document.querySelectorAll('[data-recent]').forEach((b) => b.addEventListener('click', () => { draftTask = state.recent[+b.dataset.recent]; input.value = draftTask; input.focus(); }));
+    $('#aguaMas').addEventListener('click', () => setHabit({ agua: Math.min(20, h.agua + 1) }));
+    $('#aguaMenos').addEventListener('click', () => setHabit({ agua: Math.max(0, h.agua - 1) }));
+    $('#estirar').addEventListener('click', () => setHabit({ estirar: !h.estirar }));
+    $('#entreno').addEventListener('click', () => setHabit({ entreno: !h.entreno }));
+    const hi = $('#hideInstall'); if (hi) hi.addEventListener('click', () => { state.hideInstall = true; save(); renderHome(); });
+  }
+
+  function renderRun() {
+    const a = state.active;
+    $('#app').innerHTML = `
+      <div class="session">
+        <p class="label">${a.ext ? 'Bloque extra' : 'Solo ' + BASE_MIN + ' minutos'} · ahora solo:</p>
+        <h2 class="task">${esc(a.task)}</h2>
+        <div class="ring">
+          <svg viewBox="0 0 200 200" aria-hidden="true">
+            <circle class="bg" cx="100" cy="100" r="${R}"></circle>
+            <circle class="fg" id="fg" cx="100" cy="100" r="${R}" stroke-dasharray="${C}" stroke-dashoffset="0"></circle>
+          </svg>
+          <div class="time" id="time" role="timer">--:--</div>
+        </div>
+        <p class="note">Celular boca abajo. No tienes que terminar, solo seguir hasta que suene.</p>
+        <button class="ghost" id="stop">Terminar ahora</button>
+      </div>`;
+    $('#stop').addEventListener('click', finish);
+    tick();
+  }
+
+  function renderDecide() {
+    const a = state.active;
+    const total = Math.round(a.focusMs / 60000);
+    const first = a.ext === 0;
+    const leaves = a.leaves === 0 ? 'No saliste de la app.' : `Saliste de la app ${a.leaves} ${a.leaves === 1 ? 'vez' : 'veces'}.`;
+    $('#app').innerHTML = `
+      <div class="session">
+        <div class="big" aria-hidden="true">✓</div>
+        <h2>${first ? `${BASE_MIN} minutos. Ya arrancaste.` : 'Bloque terminado'}</h2>
+        <p class="note">${first ? 'Lo difícil ya pasó.' : `Llevas ${total} min en total.`} ${esc(leaves)}</p>
+        <div class="stack">
+          <button class="go" data-ext="20">Seguir 20 min más</button>
+          <button class="secondary" data-ext="10">Seguir 10 min más</button>
+          <button class="ghost" id="finish">Paro aquí (cuenta igual)</button>
+        </div>
+      </div>`;
+    document.querySelectorAll('[data-ext]').forEach((b) => b.addEventListener('click', () => { unlockAudio(); extend(+b.dataset.ext); }));
+    $('#finish').addEventListener('click', finish);
+  }
+
+  function render() {
+    const a = state.active;
+    if (!a) return renderHome();
+    return a.stage === 'decide' ? renderDecide() : renderRun();
+  }
+
+  /* ---------- Reloj (basado en la hora real, resiste segundo plano) ---------- */
+  function tick() {
+    const a = state.active;
+    if (!a || a.stage !== 'run') return;
+    const now = Date.now();
+    const left = a.endAt - now;
+    if (left <= 0) {
+      a.focusMs += a.endAt - a.blockStart;
+      a.stage = 'decide';
+      save(); unlockScreen();
+      if (now - a.endAt < 5000) beep();
+      return render();
+    }
+    const secs = Math.ceil(left / 1000);
+    const t = $('#time'), fg = $('#fg');
+    if (t) t.textContent = pad(Math.floor(secs / 60)) + ':' + pad(secs % 60);
+    if (fg) fg.style.strokeDashoffset = String(C * (1 - (now - a.blockStart) / (a.endAt - a.blockStart)));
+  }
+  setInterval(tick, 250);
+
+  // Cada vez que sales de la app durante una sesión, se cuenta.
+  document.addEventListener('visibilitychange', () => {
+    const a = state.active; if (!a) return;
+    if (document.hidden) { if (a.stage === 'run') { a.leaves++; save(); } }
+    else { if (a.stage === 'run') lockScreen(); tick(); }
+  });
+
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+
+  render();
+})();
+</script>
+</body>
+</html>
